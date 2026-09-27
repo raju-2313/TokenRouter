@@ -1,0 +1,72 @@
+# TokenRouter example configuration
+# Copy to config.yaml and adjust. See docs/configuration.md
+# Never put real API keys here — reference environment variable names only.
+
+server:
+  host: 127.0.0.1
+  port: 8787
+  upstream_base_url: https://cleanapis.com/v1
+  request_timeout_seconds: 600
+
+database:
+  # Local SQLite (WAL) file holding token accounting. Usage is never reset on
+  # restart, so this file is the accounting source of truth.
+  path: data/tokenrouter.db
+
+routing:
+  # Only max_remaining exists in M2.
+  # max_remaining: pick the eligible account with the highest estimated
+  # remaining monthly token budget.
+  strategy: max_remaining
+  # Total upstream attempts per request (1 disables account fallback).
+  max_fallback_attempts: 2
+  # How long a per-account model list is trusted before re-discovery.
+  models_cache_ttl_seconds: 300
+  # Exclusion window applied to an account after an auth/payment/rate failure.
+  account_exclusion_seconds: 900
+
+token_estimate:
+  # Reservation estimation only. Actual upstream usage replaces the estimate
+  # once the request completes.
+  chars_per_token: 4
+  message_overhead_tokens: 8
+  default_max_completion_tokens: 1024
+  min_reservation_tokens: 32
+
+accounts:
+  # account_id is optional and defaults to name. It is the stable identifier
+  # used in the database, in routing and in logs.
+  - name: account-a
+    account_id: primary-clean
+    api_key_env: CLEAN_API_KEY_1
+    enabled: true
+    # monthly_allowance: the user's declared monthly plan allowance (tokens).
+    # null means unknown — the router then cannot check this account's budget
+    # and ranks it after accounts with a known, larger remaining budget.
+    monthly_allowance: 50000000
+    # initial_usage_tokens: tokens already consumed before TokenRouter started
+    # tracking. Estimated remaining = allowance - initial_usage - completed_usage.
+    initial_usage_tokens: 38000000
+
+  - name: account-b
+    account_id: secondary-clean
+    api_key_env: CLEAN_API_KEY_2
+    enabled: true
+    monthly_allowance: 50000000
+    initial_usage_tokens: 19000000
+
+  # Any additional CLEAN_API_KEY_<n> present in the environment is picked up
+  # automatically with an unknown allowance; declare it here when you want to
+  # set an allowance or initial usage.
+  # - name: account-c
+  #   api_key_env: CLEAN_API_KEY_3
+  #   enabled: true
+  #   monthly_allowance: 50000000
+  #   initial_usage_tokens: 0
+
+# Routing profiles (later milestone) — leave empty until needed.
+# models:
+#   coding_primary:
+#     - model-id-from-cleanapis
+#   coding_fast:
+#     - model-id-from-cleanapis
